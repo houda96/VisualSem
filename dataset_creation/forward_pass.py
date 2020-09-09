@@ -34,22 +34,23 @@ if __name__ == "__main__":
     parser.add_argument("--width", type = int, default = 300, help = "width images") # Only used for lenet
     parser.add_argument("--height", type = int, default = 300, help = "height images") # Only used for lenet
     parser.add_argument("--model", type = str, default = "resnet", help = "chosen model, lenet, resnet, vgg")
-    parser.add_argument("--file_data", type = str, default = 'good_examples.json')
-    parser.add_argument("--resize", type = bool, default = False)
-    parser.add_argument("--img_store", type = str, default = "../../../../../images/new/")
+    parser.add_argument("--file_data", type = str, default = 'data/good_examples.json', help = "valid images files")
+    parser.add_argument("--resize", type = bool, default = False, help = "resize images, only for lenet is true.")
+    parser.add_argument("--img_store", type = str, default = "data/visualsem_images")
+    parser.add_argument("--marking_dict", type = str, default = "data/marking_dict.json", help = "marking dict")
     args = parser.parse_args()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
     if args.model == "lenet":
         net = LeNet(args.width).to(device)
-        net.load_state_dict(torch.load("cnns/models/lenet_test3000_19"))
+        net.load_state_dict(torch.load("data/lenet_test3000_19"))
     elif args.model == "resnet":
         net = ResNet152().to(device)
-        net.load_state_dict(torch.load("cnns/models/resnet_test3000_26"))
+        net.load_state_dict(torch.load("data/resnet_test3000_26"))
     elif args.model == "vgg":
         net = VGG19_BN().to(device)
-        net.load_state_dict(torch.load("cnns/models/vgg_test3000_28"))
+        net.load_state_dict(torch.load("data/vgg_test3000_28"))
 
     net.eval()
     transform = TRANSFORMS[MODELS[args.model]]
@@ -78,5 +79,5 @@ if __name__ == "__main__":
         for i, elem in enumerate(batch):
             marking_dict[elem] = predicted[i].item()
 
-        with open(".marking_dict.json", "w") as f:
+        with open(args.marking_dict, "w") as f:
             json.dump(marking_dict, f)

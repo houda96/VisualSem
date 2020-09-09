@@ -1,6 +1,6 @@
 import urllib.request
 import json
-from utils import from_lemma_to_ids, from_synsetID_to_images, get_edges_from_synset, return_core_graph, process_sense_info, edge_information, process_imgs, get_key
+from utils import from_lemma_to_ids, from_synsetID_to_images, get_edges_from_synset, return_core_graph, process_sense_info, process_imgs
 from tqdm import tqdm
 import time
 import networkx as nx
@@ -10,16 +10,7 @@ import numpy as np
 from collections import Counter, defaultdict
 import os
 import subprocess
-
-folder_initial_nodes1000 = 'data/nodes_1000.json'
-relations_file = "data/rel_to_k.json"
-store_steps_nodes = "data/testing/n1000_15_"
-k = 50 # How many neigboring nodes are considered at max per relation 
-min_ims = 0
-M = 6 # How much iterations to get nodes
-
-with open(folder_initial_nodes1000) as f:
-    nodes = json.loads(f.read())
+import argparse
 
 rel_mapping = {"is_a": "IsA", "is-a": "IsA", "has-kind": "HasA", "has_kind": "HasA", "related": "RelatedTo",
                "has-part": "HasA", "has_part": "HasA", "use": "UsedFor", "used_by": "UsedBy", "used-by": "UsedBy",
@@ -76,8 +67,8 @@ def to_file(out, u_rels, k, min_ims, complete_line):
         json.dump(u_rels, f)
     print("done")
 
-def edge_information_small(synset_id, run=None, nns=None):
-    edges_info = get_edges_from_synset(synset_id)
+def edge_information_small(synset_id, placement, run=None, nns=None):
+    edges_info = get_edges_from_synset(synset_id, placement)
     if run:
         new =  [{"s":synset_id, "e": edg["target"], "rts": normalize_relation(edg["pointer"]["shortName"]),
                  "rtl": edg["pointer"]["name"], "w": edg["weight"]} for edg in edges_info if edg["target"] not in nns]
@@ -102,13 +93,13 @@ def return_sets(list_of_neighbors, k, stats, u_rels):
     # Clean var
     each_set = None
 
-def process_sense_info_small(id_syn, key=None):
-    _, synset_images = from_synsetID_to_images(id_syn, key)
+def process_sense_info_small(id_syn, placement, key=None):
+    _, synset_images = from_synsetID_to_images(id_syn, placement, key)
     num_ims = len(synset_images)
     return num_ims
 
-def create_entries(stats, u_rels, mapping, min_ims):
-    |# Calculate statistics per node
+def create_entries(stats, u_rels, mapping, min_ims, placement):
+    # Calculate statistics per node
     entry_dict = defaultdict(dict)
     l = len(set_of_rels)
     l_1 = l - 2
@@ -133,32 +124,45 @@ def create_entries(stats, u_rels, mapping, min_ims):
         new_d["rels_1_without"] = sum_2
         new_d["k_avg_with"] = sum_3/l
         new_d["k_avg_without"] = sum_4/l_1
-        new_d["imgs"] = process_sense_info_small(key)
+        new_d["imgs"] = process_sense_info_small(key, placement)
         entry_dict[key] = new_d
     return entry_dict
 
 
-def do_steps(nodes, set_of_rels, k, min_ims):
+def do_steps(nodes, set_of_rels, k, min_ims, placement):
     mapping = create_mapping(set_of_rels)
     print("step 1 done...")
     # Get all the neighboring information
     stats = defaultdict(lambda: defaultdict(int))
     u_rels = defaultdict(list)
     for n in tqdm(nodes, mininterval=10):
-        new = edge_information_small(n)
+        new = edge_information_small(n, placement)
         return_sets(new, k, stats, u_rels)
     print("step 2 done.....")
-    entry_dict = create_entries(stats, u_rels, mapping, min_ims)
+    entry_dict = create_entries(stats, u_rels, mapping, min_ims, placement)
     print("final step done...")
     return entry_dict, u_rels
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--initial_node_file", type = str, default = "data/nodes_1000.json", help = "Initial 1000 nodes json file. ")
+    parser.add_argument("--relations_file", type = str, default = "data/rel_to_k.json", help = "A json file with relation mapping; does not have to be there initially. ")
+    parser.add_argument("--store_steps_nodes", type = str, default = "data/testing_n1000_15_", help = "Where to store the steps of each nodes getting. ")
+    parser.add_argument("--k", type = int, default = 50, help = "How many neigboring nodes are considered at max per relation.")
+    parser.add_argument("--min_ims", type = int, default = 0, help = "Mimimum amount of images per node. ")
+    parser.add_argument("--M", type = int, default = 6, help = "How many iterations to get nodes. ")
+    parser.add_argument("--placement", type = str, default = "localhost:8080", help = "Nabelnet api location. ")
+    args = parser.parse_args()
+
+    with open(args.initial_node_file) as f:
+        nodes = json.loads(f.read())
+
     curr_n = set(nodes.keys())
-    for i in range(M):
-        out, u_rels = do_steps(curr_n, set_of_rels, k, min_ims)
-        complete_line = store_steps_nodes + str(k) + "_" + str(min_ims) + "_r" + str(i)
-        complete_line_s = store_steps_nodes + str(k) + "_" + str(min_ims) + "_r" + str(i) + ".sorted"
-        to_file(out, u_rels, k, min_ims, complete_line)
+    for i in range(args.M):
+        out, u_rels = do_steps(curr_n, set_of_rels, args.k, args.min_ims, args.placement)
+        complete_line = args.store_steps_nodes + str(args.k) + "_" + str(args.min_ims) + "_r" + str(i)
+        complete_line_s = args.store_steps_nodes + str(args.k) + "_" + str(args.min_ims) + "_r" + str(i) + ".sorted"
+        to_file(out, u_rels, args.k, args.min_ims, complete_line)
         cmd = 'cat ' + complete_line + " | awk '{ if (($21 >= 1) && ($18 + $17 >= 2)) { print } }' | sort -shr -k18,18 -k20,20 -k17,17 -k19,19 -k3,3 -k4,4 -k5,5 -k6,6 -k8,8 -k9,9 -k10,10 -k11,11 -k12,12 -k13,13 -k14,14 -k15,15 -k16,16 -k7,7h -k2,2h -k21,21hr > " + complete_line_s
         p = subprocess.Popen(['/bin/bash','-c', cmd], stdout=subprocess.PIPE)
         p.wait()

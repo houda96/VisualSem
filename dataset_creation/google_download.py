@@ -1,11 +1,15 @@
 from nltk import word_tokenize, pos_tag
 from google_images_download import google_images_download
 import json
-
-OUT = 'data/babelnet_images'
+import argparse
 
 if __name__ == "__main__":
-    with open('data/nodes_1000.json', 'r') as f:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--images_folder", type = str, default = "data/visualsem_images", help = "Where the visualsem images are stored. ")
+    parser.add_argument("--initial_node_file", type = str, default = "data/nodes_1000.json", help = "Where the initial nodes json is stored. ")
+    args = parser.parse_args()
+
+    with open(args.initial_node_file, 'r') as f:
         nodes = json.loads(f.read())
 
     # Create sufficient descriptions for nodes without images in the core
@@ -26,6 +30,6 @@ if __name__ == "__main__":
         print("done")
         absolute_image_paths = response.download({"keywords":name,"limit":10,"print_urls":False,
                                                   "usage_rights":"labeled-for-reuse-with-modifications",
-                                                  "output_directory":OUT, "image_directory":fold,
+                                                  "output_directory":args.images_folder, "image_directory":fold,
                                                  }) #"safe_search":True
         paths.append(absolute_image_paths)

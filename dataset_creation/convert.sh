@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Change to the folder with all images
-directory="new/*"
+directory=$1
 
 for path in $directory; do
   path_1="$path/*"

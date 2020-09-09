@@ -4,18 +4,24 @@ import glob, os
 #from cairosvg import svg2png
 from tqdm import tqdm
 import json
-from utils import from_lemma_to_ids, create_folder, from_synsetID_to_images, get_edges_from_synset, return_core_graph, process_sense_info, edge_information, process_imgs, get_key
+from utils import create_folder, from_lemma_to_ids, from_synsetID_to_images, get_edges_from_synset, return_core_graph, process_sense_info, process_imgs
 import socket
 import urllib.request
 from multiprocessing.dummy import Pool as ThreadPool
+import argparse
 
 socket.setdefaulttimeout(5)
-nodes_file = "data/nodes_180k.json"
-where_to_store_images = 'data/babelnet_images/'
+
 
 
 if __name__ == "__main__":
-    with open(nodes_file, "r") as f:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nodes_file", type = str, default = "data/nodes_180k.json", help = "Nodes file json")
+    parser.add_argument("--where_to_store_images", type = str, default = "data/visualsem_images_before/", help = "First download of images")
+    parser.add_argument("--placement", type = str, default = "localhost:8080", help = "Url for babelnet api")
+    args = parser.parse_args()
+
+    with open(args.nodes_file, "r") as f:
         nodes_180k = json.loads(f.read())
     print(len(nodes_180k))
 
@@ -23,7 +29,7 @@ if __name__ == "__main__":
     total_count_imgs = 0
     extensions = set()
     for n in tqdm(nodes_180k.keys(), mininterval=10):
-        _, synset_images = from_synsetID_to_images(n)
+        _, synset_images = from_synsetID_to_images(n, args.placement)
         ims = []
         extensions_sub = []
         for img in synset_images:
@@ -50,7 +56,7 @@ if __name__ == "__main__":
     img_dict = None
     print(new_count)
 
-    tuple_list_urls = [(url, where_to_store_images + key + "/" + url.split("/")[-1])
+    tuple_list_urls = [(url, args.where_to_store_images + key + "/" + url.split("/")[-1])
                        for key, value in new_img_dict.items()
                         for url in value]
 
@@ -59,9 +65,9 @@ if __name__ == "__main__":
     for batch in batch_urls:
         strr = ''
         for entry in batch:
-            strr += entry[0] + '\n \t dir=' + where_to_store_images +  + entry[1].split("/")[-2] + ' \n \t out=' + entry[1].split("/")[-1] + '\n'
+            strr += entry[0] + '\n \t dir=' + args.where_to_store_images +  + entry[1].split("/")[-2] + ' \n \t out=' + entry[1].split("/")[-1] + '\n'
         strings.append(strr)
 
     for i, strr in enumerate(strings):
-        with open("urls_" + str(i), "w") as f:
+        with open("data/urls_" + str(i), "w") as f:
             f.write(strr)

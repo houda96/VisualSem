@@ -7,12 +7,6 @@ import os
 import json
 
 BUF_SIZE = 65536
-FOLDER = '/home/images/babelnet_images/*'
-NEW_FOLDER = '/home/images/new/'
-sources_file = "data/img_sources.json"
-
-with open(sources_file, 'r') as f:
-    sources_img = json.loads(f.read())
 
 # Hash a file with the sha1 hash
 def hash_file(file_name):
@@ -34,7 +28,19 @@ def create_folder(directory):
         print ('Error: Creating directory. ' + directory)
 
 if __name__ == "__main__":
-    images = [j for i in glob.glob(FOLDER) for j in glob.glob(i + '/*')]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--FOLDER", type = str, default = "data/visualsem_images_before/*", help = "Initial downloaded folder with /*")
+    parser.add_argument("--NEW_FOLDER", type = str, default = "data/visualsem_images/", help = "New folder for visualsem images")
+    parser.add_argument("--sources_file", type = str, default = "data/img_sources.json", help = "Image sources")
+    parser.add_argument("--hash_to_source", type = str, default = "data/hash_to_source.json", help = "Where to store hash to source dict ")
+    parser.add_argument("--hashes_magic_dict", type = str, default = "data/hashes_magic_dict.json", help = "Where to store hashes dictionary")
+    parser.add_argument("--hashes", type = str, default = "data/hashes.json", help = "Where to store hashes")
+    args = parser.parse_args()
+
+    images = [j for i in glob.glob(args.FOLDER) for j in glob.glob(i + '/*')]
+
+    with open(args.sources_file, 'r') as f:
+        sources_img = json.loads(f.read())
 
     # if starting from no earlier files, comment below two lines
     hashes = set()
@@ -49,18 +55,18 @@ if __name__ == "__main__":
         hash_to_source[hashh].append(sources_img[synset][im.split("/")[-1]])
         if hashh not in hashes:
             hashes.add(hashh)
-            create_folder(NEW_FOLDER + hashh[:2])
-            os.rename(im, NEW_FOLDER + hashh[:2] + '/' + hashh)
+            create_folder(args.NEW_FOLDER + hashh[:2])
+            os.rename(im, args.NEW_FOLDER + hashh[:2] + '/' + hashh)
         else:
             os.remove(im)
 
     hash_to_source = {k : list(set(v)) for k, v in hash_to_source.items()}
 
-    with open("data/hash_to_source.json", "w") as f:
+    with open(args.hash_to_source, "w") as f:
         json.dump(hash_to_source, f)
 
-    with open("data/hashes_magic_dict.json", "w") as f:
+    with open(args.hashes_magic_dict, "w") as f:
         json.dump(new_d, f)
 
-    with open("data/hashes.json", "w") as f:
+    with open(args.hashes, "w") as f:
         json.dump(hashes, f)

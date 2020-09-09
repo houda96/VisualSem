@@ -1,6 +1,7 @@
 import os
 import subprocess
 import glob
+import argparse
 from tqdm import tqdm
 from PIL import Image
 from PIL import ImageFile
@@ -29,7 +30,10 @@ def process_one_img(file, im):
 
 
 if __name__ == "__main__":
-    files_all = glob.glob('new/*')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--images_folder", type = str, default = "data/visualsem_images/*", help = "Where the visualsem images are stored; ending with the *. ")
+    args = parser.parse_args()
+    files_all = glob.glob(args.images_folder)
     for files in files_all:
         print(files)
         process_images(glob.glob(files + "/*"))
